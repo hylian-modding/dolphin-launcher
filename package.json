@@ -1,0 +1,21 @@
+{
+  "name": "dolphin-launcher",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bin/main.js",
+  "scripts": {
+    "start": "node bin/main.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^18.11.9"
+  },
+  "dependencies": {
+    "@types/glob": "^8.0.0",
+    "dolphin-js": "https://framboise-jaune.fr/artifacts/ml64/dolphin-js",
+    "dolphin-plugin": "https://framboise-jaune.fr/artifacts/ml64/dolphin-plugin",
+    "glob": "^8.0.3",
+    "ml64tk": "https://framboise-jaune.fr/artifacts/ml64/ml64tk"
+  }
+}
