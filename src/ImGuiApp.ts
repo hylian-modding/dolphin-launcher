@@ -19,7 +19,7 @@ export abstract class ImGuiApp {
                 clearInterval(process);
                 this.onClosed();
             }
-        }).bind(this));
+        }).bind(this), 16);
     }
 
     private init(): void {

@@ -77,7 +77,7 @@ process.on('message', (startInfo: Common.DolphinStartInfo) => {
                 app.close();
             Dolphin.shutdown();
         }
-    });
+    }, 16);
 
     Gui.MainWindow.show();
     Gui.Settings.setToolBarVisible(false);
@@ -91,7 +91,7 @@ process.on('message', (startInfo: Common.DolphinStartInfo) => {
                 Core.doFrameStep();
                 // new frame
             }
-        });
+        }, 10);
     }
 
     if (!startInfo.isConfigure) {
