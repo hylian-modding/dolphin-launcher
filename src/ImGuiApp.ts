@@ -1,8 +1,9 @@
-import { $, AppWindow, Gui, ImGui } from 'ml64tk'
+import { $, AppWindow, Gui, ImGui, Vec4 } from 'ml64tk'
 
 export abstract class ImGuiApp {
     protected appWindow: AppWindow;
-    private darkMode = false;
+    private colorScheme: Gui.ColorScheme | undefined;
+    private colorSchemeName: string | undefined;
 
     constructor(title: string, viewports?: boolean) {
         this.appWindow = new AppWindow(false, viewports ? viewports : false);
@@ -10,7 +11,6 @@ export abstract class ImGuiApp {
         this.appWindow.on('new-frame', this.newFrame.bind(this));
         this.appWindow.on('close', this.onClose.bind(this));
         this.appWindow.title = title;
-        this.appWindow.clearColor = $.rgbaf(0, 0, 0, 1);
     }
 
     run(): void {
@@ -27,15 +27,79 @@ export abstract class ImGuiApp {
     }
 
     private newFrame(): void {
-        if (!this.darkMode) {
-            this.darkMode = true;
-            if (process.platform == 'win32') {
-                // @ts-ignore
-                Gui.useImmersiveDarkMode(ImGui.getWindowViewport(), true);
-            }
-        }
+        this.updateColorScheme();
         this.createMainDockSpace();
         this.onNewFrame();
+    }
+
+    private updateColorScheme(): void {
+        const colorScheme = Gui.getColorScheme();
+
+        if (this.colorScheme != colorScheme) {
+            if (colorScheme == Gui.ColorScheme.PreferDark) {
+                ImGui.styleColorsDark();
+                // @ts-ignore
+                if (Gui.useImmersiveDarkMode) Gui.useImmersiveDarkMode(ImGui.getMainViewport(), true);
+            }
+            else {
+                ImGui.styleColorsLight();
+                // @ts-ignore
+                if (Gui.useImmersiveDarkMode) Gui.useImmersiveDarkMode(ImGui.getMainViewport(), false);
+            }
+
+            this.colorScheme = colorScheme;
+            this.applyCustomColorScheme();
+            this.appWindow.clearColor = ImGui.getStyleColor(ImGui.Col.WindowBg);
+        }
+    }
+
+    private applyCustomColorScheme(): void {
+        // load color schemes from file...
+        const colorScheme = ((name, pref) => {
+            if (name == 'red') {
+                if (pref == Gui.ColorScheme.PreferDark)
+                    return new Map<ImGui.Col, Vec4>([
+                        [ImGui.Col.Button, $.rgba(255, 0, 0, 100)],
+                        [ImGui.Col.ButtonActive, $.rgba(255, 0, 0, 140)],
+                        [ImGui.Col.ButtonHovered, $.rgba(255, 0, 0, 180)],
+                        [ImGui.Col.WindowBg, $.rgba(60, 60, 60, 255)]
+                    ]);
+                else
+                    return new Map<ImGui.Col, Vec4>([
+                        [ImGui.Col.Button, $.rgba(255, 0, 0, 100)],
+                        [ImGui.Col.ButtonActive, $.rgba(255, 0, 0, 140)],
+                        [ImGui.Col.ButtonHovered, $.rgba(255, 0, 0, 180)],
+                        [ImGui.Col.WindowBg, $.rgba(245, 245, 245, 255)]
+                    ]);
+            }
+            else if (name == 'green') {
+                if (pref == Gui.ColorScheme.PreferDark)
+                    return new Map<ImGui.Col, Vec4>([
+                        [ImGui.Col.Button, $.rgba(0, 255, 0, 100)],
+                        [ImGui.Col.ButtonActive, $.rgba(0, 255, 0, 140)],
+                        [ImGui.Col.ButtonHovered, $.rgba(0, 255, 0, 180)],
+                        [ImGui.Col.WindowBg, $.rgba(60, 60, 60, 255)]
+                    ]);
+                else
+                    return new Map<ImGui.Col, Vec4>([
+                        [ImGui.Col.Button, $.rgba(0, 255, 0, 100)],
+                        [ImGui.Col.ButtonActive, $.rgba(0, 255, 0, 140)],
+                        [ImGui.Col.ButtonHovered, $.rgba(0, 255, 0, 180)],
+                        [ImGui.Col.WindowBg, $.rgba(245, 245, 245, 255)]
+                    ]);
+            }
+        })(this.colorSchemeName, this.colorScheme);
+
+        if (colorScheme) {
+            const style = ImGui.getStyle();
+            for (const [key, val] of colorScheme)
+                style.setColorAt(key, val);
+        }
+    }
+
+    setColorSchemeName(name: string | undefined): void {
+        this.colorSchemeName = name;
+        this.colorScheme = undefined;
     }
 
     private createMainDockSpace(): void {

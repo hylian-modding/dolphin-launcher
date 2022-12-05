@@ -10,6 +10,7 @@ import * as Util from './Util'
 class LauncherImGuiApp extends ImGuiApp {
     busy = false;
     launched = false;
+    colorSchemeIndex = [0];
     lobbyInfo: Common.LobbyInfo = { playerName: "", name: "", password: "" };
     showLobbyPassword = [false];
     romDirPath: string | undefined;
@@ -118,6 +119,8 @@ class LauncherImGuiApp extends ImGuiApp {
 
     onNewFrame() {
         if (ImGui.begin('  Dolphin      ##Dolphin_tab')) {
+            this.drawColorSchemeSelector();
+            ImGui.separator();
             this.drawLobbyInfo();
             ImGui.separator();
             this.drawLaunchMenu();
@@ -125,6 +128,12 @@ class LauncherImGuiApp extends ImGuiApp {
             this.drawGameList();
         }
         ImGui.end();
+    }
+
+    private drawColorSchemeSelector() {
+        const colorSchemes = ['default', 'red', 'green'];
+        if (ImGui.combo('Color Scheme', this.colorSchemeIndex, colorSchemes))
+            this.setColorSchemeName(this.colorSchemeIndex[0] == 0 ? undefined : colorSchemes[this.colorSchemeIndex[0]]);
     }
 
     private drawLobbyInfo() {
