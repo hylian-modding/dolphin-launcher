@@ -1,11 +1,8 @@
+import worker_threads from 'worker_threads';
 import { Dolphin, Config, Core, Gui, AddressSpace } from 'dolphin-js';
 import { ImGui } from "ml64tk";
 import * as Common from './Common'
 import { ImGuiApp } from './ImGuiApp';
-
-Dolphin.loadLibrary({
-    libraryPath: Common.getDolphinLibraryPath()
-});
 
 class ImGuiAppImpl extends ImGuiApp {
     private toggleImGuiAction!: Gui.Q.Action;
@@ -46,15 +43,42 @@ class ImGuiAppImpl extends ImGuiApp {
     }
 }
 
-process.on('message', (startInfo: Common.DolphinStartInfo) => {
+if (worker_threads.isMainThread) {
+    Dolphin.loadLibrary({
+        libraryPath: Common.getDolphinLibraryPath()
+    });
+
+    process.on('message', (startInfo: Common.DolphinStartInfo) => {
+        let hostWorker = new worker_threads.Worker(__filename, { workerData: startInfo });
+        let processFrame: NodeJS.Timer;
+
+        hostWorker.on('message', value => {
+            if (value == 'hostGameStarted' && !startInfo.isConfigure) {
+                processFrame = setInterval(() => {
+                    Dolphin.handleFrame(() => {
+                        // new frame
+                    });
+                }, 1);
+                Dolphin.enableFrameHandler(true);
+            }
+        });
+
+        hostWorker.on('exit', () => {
+            if (!startInfo.isConfigure)
+                clearInterval(processFrame);
+        });
+
+        process.removeAllListeners('message');
+    });
+}
+else {
+    const startInfo: Common.DolphinStartInfo = worker_threads.workerData;
+
     let app: ImGuiAppImpl;
     if (!startInfo.isConfigure) {
         app = new ImGuiAppImpl();
         app.run();
     }
-
-    let processUI: NodeJS.Timer;
-    let processFrame: NodeJS.Timer;
 
     Dolphin.startup({
         applicationDisplayName: 'ModLoader64',
@@ -63,36 +87,26 @@ process.on('message', (startInfo: Common.DolphinStartInfo) => {
         Config.setBool('-MAIN_USE_PANIC_HANDLERS', false);
         Config.setBool('-Main,Interface.PlayMode', !startInfo.isConfigure);
         Config.setBool('-Main,Display.RenderToMain', !startInfo.isConfigure);
-        Config.setBool('-Main,Interface.HideFPSInfo', !startInfo.isConfigure);
+        Config.setBool('-Main,Interface.HideFPSInfo', false);
     });
-    Gui.MainWindow.setIcon('assets/icon.png');
 
-    processUI = setInterval(() => {
+    const processUI = setInterval(() => {
         Dolphin.processOne();
         if (Gui.Application.hasExited()) {
-            if (!startInfo.isConfigure)
-                clearInterval(processFrame);
             clearInterval(processUI);
-            if (!startInfo.isConfigure)
+            if (!startInfo.isConfigure) {
                 app.close();
+                Dolphin.enableFrameHandler(false);
+            }
             Dolphin.shutdown();
+            worker_threads.parentPort?.close();
         }
     }, 16);
 
+    Gui.MainWindow.setIcon('assets/icon.png');
     Gui.MainWindow.show();
-    Gui.Settings.setToolBarVisible(false);
+    Gui.Settings.setToolBarVisible(startInfo.isConfigure);
     Gui.Settings.setDebugModeEnabled(false);
-
-    if (!startInfo.isConfigure) {
-        Gui.MainWindow.startGame(startInfo.gameFilePath!);
-
-        processFrame = setInterval(() => {
-            if (Core.isRunningAndStarted()) {
-                Core.doFrameStep();
-                // new frame
-            }
-        }, 10);
-    }
 
     if (!startInfo.isConfigure) {
         let debugMenu = Gui.MainWindow.getMenuBar().addMenu('Debug');
@@ -119,5 +133,8 @@ process.on('message', (startInfo: Common.DolphinStartInfo) => {
         });
     }
 
-    process.removeAllListeners('message');
-});
+    if (!startInfo.isConfigure)
+        Gui.MainWindow.startGame(startInfo.gameFilePath!);
+
+    worker_threads.parentPort?.postMessage('hostGameStarted');
+}
